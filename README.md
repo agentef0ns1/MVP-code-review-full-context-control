@@ -35,6 +35,12 @@ Secuencia típica: el usuario pide la auditoría al agente; el agente invoca too
 
 ![Flujo de comunicación agente, LLM, MCP y repositorio](MVP-context-code-analisys-flow.png)
 
+### Paginación autónoma de la ventana de contexto (captura Wireshark)
+
+En una auditoría real, el agente no envía el repositorio entero en una sola petición: alterna llamadas al **LLM local** con invocaciones **MCP** (`memory_audit_next_step`, `memory_workspace_read`, etc.). En el tráfico se ve una secuencia de rondas acotadas en lugar de un único bloque que supere el límite de contexto.
+
+![Wireshark — secuencia de llamadas LLM y MCP paginando el análisis](MVP-wireshark.png)
+
 ## Instalación
 
 ```bash
