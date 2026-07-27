@@ -154,15 +154,4 @@ pytest
 └── docs/
 ```
 
-## Publicación / clon limpio
 
-No subir `.venv/`, `data/`, `*.db`, tokens ni `**/.mvp-audit/` de repos analizados. Ver `.gitignore`.
-
-Sincronizar copia de publicación (ejemplo):
-
-```bash
-rsync -a --delete \
-  --exclude '.venv/' --exclude '__pycache__/' --exclude '.pytest_cache/' \
-  --exclude '*.egg-info/' --exclude 'data/' --exclude '*.db' --exclude '.git/' \
-  MVP-memory-context/ MVP-code-analisys-full-context-control/
-```
