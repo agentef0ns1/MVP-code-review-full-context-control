@@ -1,0 +1,45 @@
+{
+  "id": "security-static-first",
+  "title": "Estáticos primero (semgrep + gitleaks) + auditoría full",
+  "description": "Ejecuta herramientas deterministas si están instaladas; luego mismo alcance que security-full.",
+  "extends": ["security-full"],
+  "output_dir_default": ".mvp-audit",
+  "static_tools": [
+    {
+      "id": "semgrep",
+      "label": "Semgrep p/ci",
+      "command": "semgrep",
+      "args": ["--config", "p/ci", "--json", "-q", "{target}"],
+      "output_file": "static/semgrep.json",
+      "required": false,
+      "timeout_sec": 600
+    },
+    {
+      "id": "gitleaks",
+      "label": "Gitleaks detect",
+      "command": "gitleaks",
+      "args": [
+        "detect",
+        "--source",
+        "{target}",
+        "--no-git",
+        "--report-format",
+        "json",
+        "--report-path",
+        "{output}/static/gitleaks.json"
+      ],
+      "output_file": "static/gitleaks.json",
+      "required": false,
+      "timeout_sec": 300
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-static",
+      "title": "Triar resultados semgrep/gitleaks",
+      "deliverable": "findings/00-static-tools.md",
+      "require_poc": false
+    }
+  ],
+  "agent_instructions": "1) Leer {output_dir}/static/README.md y JSON en static/. 2) Importar hallazgos confirmados con memory_audit_record_finding. 3) Continuar con scans rg y unidades. Semgrep cubre muchas reglas XSS/SQLi; complementa con scans xss-dom y sqli-sql."
+}

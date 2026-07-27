@@ -1,0 +1,57 @@
+{
+  "id": "js-console-api",
+  "title": "API JavaScript invocable desde consola",
+  "description": "Detecta funciones/propiedades expuestas en window/globalThis aunque no se invoquen en el código.",
+  "output_dir_default": ".mvp-audit",
+  "findings": {
+    "index": "indice.md",
+    "dir": "findings",
+    "finding_template": "findings/FIND-{seq:03d}-{slug}/informe.md"
+  },
+  "poc": {
+    "required": true,
+    "dir": "poc",
+    "note": "Por cada API de consola confirmada: poc/<slug>/README.md con comandos exactos para DevTools (ej. window.foo(...))."
+  },
+  "searches": [
+    {
+      "id": "window-dot",
+      "label": "Asignaciones window.*",
+      "pattern": "window\\.[a-zA-Z_$][\\w$]*\\s*=",
+      "max_count": 20
+    },
+    {
+      "id": "window-bracket",
+      "label": "window[\"nombre\"]",
+      "pattern": "window\\[[\"']",
+      "max_count": 15
+    },
+    {
+      "id": "globalThis",
+      "label": "globalThis",
+      "pattern": "globalThis\\.[a-zA-Z_$]",
+      "max_count": 15
+    },
+    {
+      "id": "export-public",
+      "label": "export public",
+      "pattern": "export\\s+(function|const|class|var)",
+      "max_count": 15
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01-console-catalog",
+      "title": "Catálogo de APIs de consola",
+      "deliverable": "findings/T01-console-api-catalog.md",
+      "require_poc": true
+    },
+    {
+      "id": "T02-units",
+      "title": "Completar unidades JS del plan",
+      "deliverable": "indice.md",
+      "require_poc": false
+    }
+  ],
+  "agent_instructions": "OBLIGATORIO: memory_audit_record_finding por cada hallazgo. memory_audit_finalize antes de cerrar. Consolida T01 en findings/T01-console-api-catalog.md."
+}

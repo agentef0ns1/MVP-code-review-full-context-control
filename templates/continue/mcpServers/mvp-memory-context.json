@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "mvp-memory-context": {
+      "type": "stdio",
+      "command": "/path/to/MVP-code-analisys-full-context-control/.venv/bin/mvp-memory-mcp",
+      "args": [
+        "--data-dir",
+        "/home/USER/.local/share/mvp-memory-context"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      },
+      "timeout": 300,
+      "disabled": false,
+      "autoApprove": [
+        "memory_list_projects",
+        "memory_create_project",
+        "memory_get_state",
+        "memory_get_checkpoint",
+        "memory_append_event",
+        "memory_add_decision",
+        "memory_add_pending",
+        "memory_resolve_pending",
+        "memory_log_error",
+        "memory_add_file_ref",
+        "memory_update_summary",
+        "memory_search",
+        "memory_get_entry",
+        "memory_update_entry",
+        "memory_export_project",
+        "memory_import_project",
+        "memory_acquire_lock",
+        "memory_release_lock",
+        "memory_freeze_project",
+        "memory_get_agent_guide",
+        "memory_list_audit_profiles",
+        "memory_list_audit_prompts",
+        "memory_get_audit_prompt",
+        "memory_audit_start",
+        "memory_audit_status",
+        "memory_audit_next_step",
+        "memory_audit_complete_step",
+        "memory_audit_record_finding",
+        "memory_audit_finalize",
+        "memory_workspace_plan",
+        "memory_workspace_next_unit",
+        "memory_workspace_read",
+        "memory_workspace_complete_unit",
+        "memory_workspace_scan_patterns"
+      ]
+    }
+  }
+}

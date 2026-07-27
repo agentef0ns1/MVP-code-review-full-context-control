@@ -1,0 +1,77 @@
+{
+  "id": "security-injection",
+  "title": "Inyecciones y validación (XSS, SQLi, path, template)",
+  "description": "Patrones rg orientados a sinks XSS, SQL/query, SSRF, deserialización y validación débil.",
+  "output_dir_default": ".mvp-audit",
+  "findings": {
+    "index": "indice.md",
+    "dir": "findings",
+    "finding_template": "findings/FIND-{seq:03d}-{slug}/informe.md"
+  },
+  "poc": { "required": true, "dir": "poc" },
+  "searches": [
+    {
+      "id": "xss-dom",
+      "label": "XSS DOM (innerHTML, document.write)",
+      "pattern": "(innerHTML|outerHTML|insertAdjacentHTML|document\\.write|dangerouslySetInnerHTML|v-html|\\[innerHTML\\])",
+      "max_count": 20
+    },
+    {
+      "id": "xss-url",
+      "label": "XSS URL/DOM (location, href javascript)",
+      "pattern": "(location\\.(hash|search|href)|javascript:|data:text/html)",
+      "max_count": 15
+    },
+    {
+      "id": "sqli-sql",
+      "label": "SQL concatenado / query raw",
+      "pattern": "(SELECT .+ FROM|INSERT INTO|execute\\(|rawQuery|sql`|query\\s*\\(\\s*[\"'].*\\+|db\\.query\\(.*\\+)",
+      "max_count": 15
+    },
+    {
+      "id": "nosql-injection",
+      "label": "NoSQL / operadores $where",
+      "pattern": "(\\$where|\\$regex|findOne\\(.*\\+|mongoose\\.find)",
+      "max_count": 12
+    },
+    {
+      "id": "cmd-injection",
+      "label": "Command injection",
+      "pattern": "(exec\\(|spawn\\(|system\\(|subprocess|os\\.popen|Runtime\\.getRuntime)",
+      "max_count": 12
+    },
+    {
+      "id": "path-traversal",
+      "label": "Path traversal / LFI",
+      "pattern": "(\\.\\.\\/|path\\.join\\(.*req\\.|readFile\\(.*\\+|sendFile\\()",
+      "max_count": 12
+    },
+    {
+      "id": "ssrf-fetch",
+      "label": "SSRF / fetch URL controlada",
+      "pattern": "(fetch\\(|axios\\.(get|post)|HttpClient|request\\(|urllib|URL\\(.*req\\.)",
+      "max_count": 15
+    },
+    {
+      "id": "param-validation",
+      "label": "Validación débil (parse sin schema)",
+      "pattern": "(JSON\\.parse\\(|eval\\(|new Function\\(|deserialize|pickle\\.loads|yaml\\.load\\()",
+      "max_count": 15
+    },
+    {
+      "id": "postmessage",
+      "label": "postMessage sin origin check",
+      "pattern": "(postMessage|addEventListener\\([\"']message",
+      "max_count": 12
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-injection-review",
+      "title": "Revisión inyecciones (XSS/SQLi/SSRF)",
+      "deliverable": "findings/T-injection-review.md",
+      "require_poc": true
+    }
+  ],
+  "agent_instructions": "Triar hits en scans/ (xss-*, sqli-*, etc.). Cada hallazgo confirmado: memory_audit_record_finding (obligatorio). PoC reproducible para XSS/SSRF."
+}

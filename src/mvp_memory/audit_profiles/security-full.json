@@ -1,0 +1,39 @@
+{
+  "id": "security-full",
+  "title": "Auditoría completa (baseline + consola + inyecciones)",
+  "description": "Combina secretos, storage, sinks, API consola, XSS, SQLi, SSRF y validación.",
+  "extends": ["security-baseline", "js-console-api", "security-injection"],
+  "output_dir_default": ".mvp-audit",
+  "poc": {
+    "required": true,
+    "dir": "poc",
+    "note": "PoC en poc/<FIND-id>/ para severidad high/critical y XSS confirmado."
+  },
+  "tasks": [
+    {
+      "id": "T00-static-review",
+      "title": "Revisar scans/ y static/ (si existe)",
+      "deliverable": "findings/00-scan-review.md",
+      "require_poc": false
+    },
+    {
+      "id": "T01-console",
+      "title": "Catálogo API consola",
+      "deliverable": "findings/T01-console-api-catalog.md",
+      "require_poc": true
+    },
+    {
+      "id": "T02-injection",
+      "title": "Informe inyecciones",
+      "deliverable": "findings/T-injection-review.md",
+      "require_poc": true
+    },
+    {
+      "id": "T03-units",
+      "title": "Completar unidades del plan",
+      "deliverable": "indice.md",
+      "require_poc": true
+    }
+  ],
+  "agent_instructions": "OBLIGATORIO: cada hallazgo con memory_audit_record_finding (escribe en disco). Prohibido declarar auditoría completa sin memory_audit_finalize. Revisa scans/ (secrets, xss-dom, sqli-sql, window-dot, etc.). Resumen ejecutivo solo tras finalize."
+}

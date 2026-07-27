@@ -1,0 +1,51 @@
+{
+  "id": "security-baseline",
+  "title": "Auditoría de seguridad (baseline)",
+  "description": "Recorrido progresivo del código + búsquedas de secretos, storage y sinks.",
+  "output_dir_default": ".mvp-audit",
+  "findings": {
+    "index": "indice.md",
+    "dir": "findings",
+    "finding_template": "findings/FIND-{seq:03d}-{slug}/informe.md"
+  },
+  "poc": {
+    "required": false,
+    "dir": "poc",
+    "note": "Crear PoC solo para hallazgos confirmados; guardar en poc/<FIND-id>/"
+  },
+  "searches": [
+    {
+      "id": "secrets",
+      "label": "Secretos y tokens",
+      "pattern": "(password|passwd|secret|api[_-]?key|token|bearer|access_token)",
+      "max_count": 15
+    },
+    {
+      "id": "storage",
+      "label": "Almacenamiento cliente",
+      "pattern": "(localStorage|sessionStorage|document\\.cookie)",
+      "max_count": 15
+    },
+    {
+      "id": "sinks",
+      "label": "Sinks peligrosos",
+      "pattern": "(eval\\s*\\(|innerHTML|dangerouslySetInnerHTML)",
+      "max_count": 12
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-scan-review",
+      "title": "Revisar escaneos iniciales",
+      "deliverable": "findings/00-scan-review.md",
+      "require_poc": false
+    },
+    {
+      "id": "T-units",
+      "title": "Completar unidades del plan (chunk por chunk)",
+      "deliverable": "indice.md",
+      "require_poc": true
+    }
+  ],
+  "agent_instructions": "Prioriza unidades pequeñas. Para cada hallazgo: informe en {{findings_dir}}, evidencia en la misma carpeta, PoC en {{poc_dir}} si el perfil lo exige o severidad alta. Usa memory_workspace_read; no leas bundles enteros en el IDE."
+}

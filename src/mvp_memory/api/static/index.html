@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MVP Memory Context — Admin</title>
+  <style>
+    :root { --bg: #0f1419; --panel: #1a2332; --text: #e7ecf3; --muted: #8b9cb3; --accent: #3d8bfd; --danger: #e5534b; --ok: #3fb950; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header { padding: 1rem 1.5rem; background: var(--panel); border-bottom: 1px solid #2d3a4f; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 1rem 1.5rem; max-width: 1200px; margin: 0 auto; }
+    input, textarea, select, button { font: inherit; }
+    input, textarea, select { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #3d4f68; background: #121820; color: var(--text); }
+    button { padding: 0.45rem 0.85rem; border-radius: 6px; border: none; background: var(--accent); color: #fff; cursor: pointer; }
+    button.secondary { background: #334155; }
+    button.danger { background: var(--danger); }
+    .grid { display: grid; gap: 1rem; }
+    .card { background: var(--panel); border: 1px solid #2d3a4f; border-radius: 10px; padding: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #2d3a4f; }
+    th { color: var(--muted); font-weight: 600; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tabs button { background: #243044; }
+    .tabs button.active { background: var(--accent); }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
+    .row > * { flex: 1; min-width: 140px; }
+    .status { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; background: #243044; font-size: 0.75rem; }
+    .status.frozen { background: #5c3b00; color: #ffd48a; }
+    pre { white-space: pre-wrap; background: #121820; padding: 0.75rem; border-radius: 8px; overflow: auto; max-height: 280px; }
+    .hidden { display: none; }
+    #authGate { max-width: 420px; margin: 4rem auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MVP Memory Context</h1>
+    <span class="muted" id="healthLabel">—</span>
+    <button type="button" class="secondary" id="btnRefresh">Actualizar</button>
+  </header>
+
+  <main>
+    <section id="authGate" class="card grid">
+      <p>Introduce el token de administrador (<code>~/.config/mvp-memory-context/admin.token</code>). Se genera al arrancar la API.</p>
+      <input type="password" id="tokenInput" placeholder="Admin token" autocomplete="off" />
+      <button type="button" id="btnLogin">Conectar</button>
+    </section>
+
+    <section id="app" class="hidden">
+      <div class="tabs">
+        <button type="button" data-view="dashboard" class="active">Proyectos</button>
+        <button type="button" data-view="audit">Auditoría</button>
+      </div>
+
+      <div id="viewDashboard" class="grid">
+        <div class="card">
+          <h2>Proyectos</h2>
+          <table>
+            <thead><tr><th>ID</th><th>Nombre</th><th>Estado</th><th>Último acceso</th><th>Tamaño</th><th></th></tr></thead>
+            <tbody id="projectsBody"></tbody>
+          </table>
+        </div>
+        <div id="projectDetail" class="card hidden grid">
+          <div class="row">
+            <div><strong id="detailTitle"></strong><div class="muted" id="detailMeta"></div></div>
+            <button type="button" class="secondary" id="btnExport">Exportar</button>
+            <button type="button" class="secondary" id="btnFreeze">Congelar</button>
+            <button type="button" class="danger" id="btnWipe">Reiniciar (wipe)</button>
+          </div>
+          <div class="muted" id="lockStatus"></div>
+          <button type="button" class="secondary" id="btnBreakLock">Liberar lock (admin)</button>
+          <h3>Resumen / checkpoint</h3>
+          <pre id="summaryBlock"></pre>
+          <h3>Timeline</h3>
+          <div class="row">
+            <input id="searchQuery" placeholder="Buscar..." />
+            <button type="button" id="btnSearch">Buscar</button>
+          </div>
+          <table>
+            <thead><tr><th>#</th><th>Tipo</th><th>Título</th><th>Fecha</th><th></th></tr></thead>
+            <tbody id="timelineBody"></tbody>
+          </table>
+          <h3>Editor</h3>
+          <div class="grid">
+            <input id="editTitle" placeholder="Título" />
+            <textarea id="editBody" rows="5" placeholder="Cuerpo"></textarea>
+            <input id="editTags" placeholder="tags separadas por coma" />
+            <input id="editReason" placeholder="Motivo del cambio" value="edited via UI" />
+            <div class="row">
+              <button type="button" id="btnSaveEntry">Guardar entrada</button>
+              <button type="button" class="danger" id="btnDeleteEntry">Borrado lógico</button>
+              <button type="button" class="danger" id="btnPurgeEntry">Purge físico</button>
+            </div>
+          </div>
+          <h3>Importar JSON</h3>
+          <textarea id="importJson" rows="4" placeholder='Pega export JSON aquí'></textarea>
+          <div class="row">
+            <select id="importMode"><option value="merge">merge</option><option value="replace">replace</option></select>
+            <label class="muted"><input type="checkbox" id="importConfirm" /> confirm_overwrite</label>
+            <button type="button" id="btnImport">Importar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewAudit" class="card hidden">
+        <h2>Auditoría</h2>
+        <table>
+          <thead><tr><th>Hora</th><th>Actor</th><th>Acción</th><th>Proyecto</th><th>Detalle</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { token: localStorage.getItem('mvp_memory_token') || '', projectId: null, selectedEntryId: null };
+
+    function headers() {
+      return { 'Authorization': 'Bearer ' + state.token, 'Content-Type': 'application/json' };
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+      if (res.status === 401) throw new Error('Unauthorized');
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return text; }
+    }
+
+    async function checkHealth() {
+      try {
+        const h = await fetch('/api/health').then(r => r.json());
+        document.getElementById('healthLabel').textContent = h.data_dir || 'ok';
+      } catch { document.getElementById('healthLabel').textContent = 'API offline'; }
+    }
+
+    function showApp(show) {
+      document.getElementById('authGate').classList.toggle('hidden', show);
+      document.getElementById('app').classList.toggle('hidden', !show);
+    }
+
+    async function login() {
+      state.token = document.getElementById('tokenInput').value.trim();
+      await api('/api/projects?limit=1');
+      localStorage.setItem('mvp_memory_token', state.token);
+      showApp(true);
+      loadProjects();
+    }
+
+    async function loadProjects() {
+      const data = await api('/api/projects?limit=100');
+      const tbody = document.getElementById('projectsBody');
+      tbody.innerHTML = '';
+      (data.projects || []).forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><code>${p.id}</code></td><td>${p.display_name || ''}</td>
+          <td><span class="status ${p.status === 'frozen' ? 'frozen' : ''}">${p.status}</span></td>
+          <td>${p.last_accessed_at || '—'}</td><td>${p.memory_size_bytes || 0} B</td>
+          <td><button type="button" data-open="${p.id}">Abrir</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('[data-open]').forEach(btn => btn.onclick = () => openProject(btn.dataset.open));
+    }
+
+    async function openProject(id) {
+      state.projectId = id;
+      state.selectedEntryId = null;
+      document.getElementById('projectDetail').classList.remove('hidden');
+      const data = await api('/api/projects/' + encodeURIComponent(id));
+      document.getElementById('detailTitle').textContent = id;
+      document.getElementById('detailMeta').textContent = JSON.stringify(data.stats || {}, null, 0);
+      document.getElementById('summaryBlock').textContent =
+        (data.summary || '') + '\n\ncheckpoint: ' + (data.checkpoint || '') + '\n\n' + JSON.stringify(data.state_json || {}, null, 2);
+      const lock = data.lock || {};
+      document.getElementById('lockStatus').textContent = lock.locked
+        ? `Lock activo: ${lock.holder} hasta ${lock.expires_at}` : 'Sin lock de agente';
+      await loadTimeline();
+    }
+
+    async function loadTimeline() {
+      const data = await api('/api/projects/' + encodeURIComponent(state.projectId) + '/timeline?limit=200');
+      const tbody = document.getElementById('timelineBody');
+      tbody.innerHTML = '';
+      (data.entries || []).forEach(e => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${e.sequence}</td><td>${e.entry_type}</td><td>${escapeHtml(e.title)}</td><td>${e.created_at}</td>
+          <td><button type="button" data-eid="${e.id}">Editar</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('[data-eid]').forEach(btn => btn.onclick = () => selectEntry(btn.dataset.eid, data.entries));
+    }
+
+    function selectEntry(id, entries) {
+      const e = entries.find(x => x.id === id);
+      if (!e) return;
+      state.selectedEntryId = id;
+      document.getElementById('editTitle').value = e.title || '';
+      document.getElementById('editBody').value = e.body || '';
+      document.getElementById('editTags').value = (e.tags || []).join(', ');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    document.getElementById('btnLogin').onclick = () => login().catch(() => alert('Token inválido'));
+    document.getElementById('btnRefresh').onclick = () => { loadProjects(); if (state.projectId) openProject(state.projectId); };
+    document.querySelectorAll('.tabs button').forEach(btn => btn.onclick = () => {
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.dataset.view;
+      document.getElementById('viewDashboard').classList.toggle('hidden', v !== 'dashboard');
+      document.getElementById('viewAudit').classList.toggle('hidden', v !== 'audit');
+      if (v === 'audit') loadAudit();
+    });
+
+    async function loadAudit() {
+      const data = await api('/api/audit?limit=200');
+      const tbody = document.getElementById('auditBody');
+      tbody.innerHTML = '';
+      (data.items || []).forEach(a => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${a.timestamp}</td><td>${a.actor}</td><td>${a.action}</td><td>${a.project_id || ''}</td>
+          <td><code>${escapeHtml(JSON.stringify(a.payload || {}))}</code></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('btnSearch').onclick = async () => {
+      const q = document.getElementById('searchQuery').value;
+      const data = await api('/api/search', { method: 'POST', body: JSON.stringify({ project_id: state.projectId, query: q, limit: 50 }) });
+      const tbody = document.getElementById('timelineBody');
+      tbody.innerHTML = '';
+      (data.entries || []).forEach(e => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${e.sequence}</td><td>${e.entry_type}</td><td>${escapeHtml(e.title)} (score ${(e.score||0).toFixed(2)})</td><td>${e.created_at}</td>
+          <td><button type="button" data-eid="${e.id}">Editar</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('[data-eid]').forEach(btn => btn.onclick = () => selectEntry(btn.dataset.eid, data.entries));
+    };
+
+    document.getElementById('btnSaveEntry').onclick = async () => {
+      if (!state.selectedEntryId) { alert('Selecciona una entrada'); return; }
+      const tags = document.getElementById('editTags').value.split(',').map(t => t.trim()).filter(Boolean);
+      await api('/api/entries/' + state.selectedEntryId, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: document.getElementById('editTitle').value,
+          body: document.getElementById('editBody').value,
+          tags,
+          reason: document.getElementById('editReason').value,
+        }),
+      });
+      await openProject(state.projectId);
+    };
+
+    document.getElementById('btnDeleteEntry').onclick = async () => {
+      if (!state.selectedEntryId || !confirm('¿Borrado lógico?')) return;
+      await api('/api/entries/' + state.selectedEntryId + '?confirm=true&reason=ui', { method: 'DELETE' });
+      state.selectedEntryId = null;
+      await openProject(state.projectId);
+    };
+
+    document.getElementById('btnPurgeEntry').onclick = async () => {
+      if (!state.selectedEntryId || !confirm('¿Purge físico irreversible?')) return;
+      const confirm_token = prompt('Pega admin token para purge:');
+      await api('/api/entries/' + state.selectedEntryId + '/purge?confirm_token=' + encodeURIComponent(confirm_token), { method: 'POST' });
+      state.selectedEntryId = null;
+      await openProject(state.projectId);
+    };
+
+    document.getElementById('btnExport').onclick = async () => {
+      const res = await fetch('/api/export/' + encodeURIComponent(state.projectId) + '?format=json', { headers: headers() });
+      if (!res.ok) { alert('Export failed'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = state.projectId + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    document.getElementById('btnFreeze').onclick = async () => {
+      await api('/api/projects/' + encodeURIComponent(state.projectId) + '/freeze?reason=ui', { method: 'POST' });
+      loadProjects();
+    };
+
+    document.getElementById('btnWipe').onclick = async () => {
+      if (!confirm('¿Reiniciar proyecto (wipe)?')) return;
+      await api('/api/projects/' + encodeURIComponent(state.projectId) + '/reset?wipe=true&confirm=true', { method: 'POST' });
+      await openProject(state.projectId);
+    };
+
+    document.getElementById('btnBreakLock').onclick = async () => {
+      await api('/api/projects/' + encodeURIComponent(state.projectId) + '/lock/break', { method: 'POST' });
+      await openProject(state.projectId);
+    };
+
+    document.getElementById('btnImport').onclick = async () => {
+      const raw = document.getElementById('importJson').value;
+      const mode = document.getElementById('importMode').value;
+      const confirm_overwrite = document.getElementById('importConfirm').checked;
+      await api('/api/import?mode=' + mode + '&confirm_overwrite=' + confirm_overwrite, { method: 'POST', body: raw });
+      alert('Importado');
+      loadProjects();
+    };
+
+    checkHealth();
+    if (state.token) {
+      login().catch(() => showApp(false));
+    }
+  </script>
+</body>
+</html>
