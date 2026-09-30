@@ -14,7 +14,7 @@ from mvp_memory.audit_profiles_loader import (
 )
 
 if TYPE_CHECKING:
-    from mcp.server.fastmcp import FastMCP
+    from mvp_memory.mcp_compat import FastMCP
 
 
 def _prompt_body_for_profile(profile_id: str, target_directory: str) -> str:

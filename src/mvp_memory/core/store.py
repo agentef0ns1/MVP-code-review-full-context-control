@@ -14,6 +14,7 @@ from mvp_memory.core.locks import LockService
 from mvp_memory.core.search import SearchService
 from mvp_memory.core.semantic import SemanticSearchService
 from mvp_memory.core.workspace_plan import WorkspacePlanService
+from mvp_memory.core.audit_runner import run_audit
 from mvp_memory.core.audit_session import AuditSessionService
 from mvp_memory.audit_profiles_loader import (
     load_profile,
@@ -1360,6 +1361,25 @@ class MemoryStore:
         )
         return {"schema_version": SCHEMA_VERSION, **rec}
 
+    def audit_run(
+        self,
+        target_directory: str | None = None,
+        project_id: str | None = None,
+        profile_id: str = "security-full",
+        reset: bool = False,
+        actor: str = "agent",
+        session_id: str | None = None,
+    ) -> dict:
+        return run_audit(
+            self,
+            target_directory=target_directory,
+            project_id=project_id,
+            profile_id=profile_id,
+            reset=reset,
+            actor=actor,
+            session_id=session_id,
+        )
+
     def audit_finalize(self, project_id: str, actor: str = "agent") -> dict:
         with self.db.transaction() as conn:
             self._require_active_project(conn, project_id, actor)
@@ -1406,35 +1426,42 @@ class MemoryStore:
     def audit_next_step(self, project_id: str, actor: str = "agent") -> dict:
         with self.db.transaction() as conn:
             self._require_active_project(conn, project_id, actor)
-            root, out, _cfg = self.audit_session._output_root(conn, project_id)
-            sess = conn.execute(
-                "SELECT profile_id FROM audit_sessions WHERE project_id=?",
-                (project_id,),
-            ).fetchone()
-            profile = load_profile(sess["profile_id"])
+            _root, out, _cfg = self.audit_session._output_root(conn, project_id)
             nxt = self.workspace.next_unit(conn, project_id)
         unit = nxt.get("unit")
-        hints: list[str] = []
-        if unit:
-            rel0 = unit["rel_paths"][0]
-            if unit.get("strategy") == "rg_windows":
-                hints.append(
-                    "memory_workspace_scan_patterns en rel_path de la unidad + revisar scans del perfil."
-                )
-            else:
-                hints.append(
-                    f'memory_workspace_read(project_id="{project_id}", rel_path="{rel0}")'
-                )
-            hints.append(f"Notas: {out}/unidades/{unit['unit_id']}.md")
+        if not unit:
+            return {
+                "schema_version": SCHEMA_VERSION,
+                "project_id": project_id,
+                "output_dir": str(out),
+                "unit": None,
+                "done": True,
+                "do_now": f'memory_audit_finalize(project_id="{project_id}")',
+            }
+        rel = unit.get("read_rel_path") or (unit.get("rel_paths") or [""])[0]
+        uid = unit["unit_id"]
+        if unit.get("strategy") == "rg_windows":
+            do_now = (
+                f'memory_workspace_scan_patterns(project_id="{project_id}", rel_path="{rel}")'
+            )
+        else:
+            do_now = (
+                f'memory_workspace_read(project_id="{project_id}", rel_path="{rel}")'
+            )
         return {
             "schema_version": SCHEMA_VERSION,
             "project_id": project_id,
             "output_dir": str(out),
-            "unit": unit,
-            "profile_searches": profile.get("searches"),
-            "poc_required": (profile.get("poc") or {}).get("required", False),
-            "hints": hints,
-            "complete_with": "memory_audit_complete_step",
+            "done": False,
+            "unit": {
+                "unit_id": uid,
+                "read_rel_path": rel,
+                "strategy": unit.get("strategy"),
+            },
+            "do_now": do_now,
+            "then": (
+                f'memory_audit_complete_step(project_id="{project_id}", unit_id="{uid}")'
+            ),
         }
 
     def audit_complete_step(
@@ -1475,6 +1502,11 @@ class MemoryStore:
             "checkpoint": ck,
             "next_unit": nxt.get("unit"),
             "done_all_units": nxt.get("done", False),
+            "continue_with": (
+                "memory_audit_finalize"
+                if nxt.get("done", False)
+                else "memory_audit_next_step"
+            ),
         }
 
     def list_audit_profiles(self) -> dict:

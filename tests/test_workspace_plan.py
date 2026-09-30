@@ -27,9 +27,14 @@ def test_workspace_plan_and_read(tmp_path: Path) -> None:
     assert plan["unit_count"] == 2
     assert plan["next_unit"]["unit_id"] == "chunk-0001"
     assert plan["next_unit"]["rel_paths"] == ["init.js"]
+    assert plan["next_unit"]["read_rel_path"] == "init.js"
 
     read = store.workspace_read("p1", "init.js", line_limit=50)
     assert "access_token" in read["content"]
+    prefixed = store.workspace_read("p1", "chunk-0001/init.js", line_limit=50)
+    assert prefixed["rel_path"] == "init.js"
+    assert prefixed["corrected_from"] == "chunk-0001/init.js"
+    assert "access_token" in prefixed["content"]
 
     nxt = store.workspace_complete_unit("p1", "chunk-0001")
     assert nxt["unit"]["rel_paths"] == ["big.js"]

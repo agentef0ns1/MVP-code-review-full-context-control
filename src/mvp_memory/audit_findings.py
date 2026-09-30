@@ -132,6 +132,17 @@ def finalize_audit(out: Path) -> dict[str, Any]:
             "\n⚠️ **Sin hallazgos persistidos.** El agente debe usar `memory_audit_record_finding` "
             "por cada issue; no basta con el resumen en el chat.\n"
         )
+    incidentes = out / "INCIDENTES.md"
+    body.extend(["", "## Pendiente de revisión", ""])
+    if incidentes.is_file():
+        body.append(
+            "Los fallos de lectura o de scan están en [INCIDENTES.md](INCIDENTES.md)."
+        )
+        preview = incidentes.read_text(encoding="utf-8").splitlines()[:40]
+        if preview:
+            body.extend(["", *preview])
+    else:
+        body.append("No hay incidentes.")
     resumen.write_text("\n".join(body) + "\n", encoding="utf-8")
     return {
         "resumen_path": str(resumen),

@@ -26,6 +26,9 @@ def test_audit_start_baseline(tmp_path: Path) -> None:
 
     step = store.audit_next_step(r["project_id"])
     assert step["unit"]["unit_id"] == "chunk-0001"
+    assert step["unit"]["read_rel_path"] == "init.js"
+    assert "profile_searches" not in step
+    assert "memory_workspace_read" in step["do_now"]
 
     pr = store.list_audit_profiles()
     assert any(p["id"] == "js-console-api" for p in pr["profiles"])

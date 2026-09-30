@@ -154,6 +154,7 @@ def render_audit_prompt(profile: dict[str, Any], ctx: dict[str, str]) -> str:
 4. Bucle: `memory_audit_next_step` → analizar → **record_finding** → `memory_audit_complete_step`.
 5. Cierre: **`memory_audit_finalize(project_id="{pid}")`** — genera RESUMEN-EJECUTIVO.md; no declares "COMPLETE" sin esto.
 6. No volcar bundles al chat; solo `memory_workspace_read` / `{scans}`.
+7. `chunk-0001` es un **unit_id**, no un fichero. No existen `mvp-audit/chunks/` ni `queue.md`. Prohibido `read_files` sobre esas rutas. Si el historial se trunca, llama otra vez a `memory_audit_next_step` y sigue hasta `memory_audit_finalize`. No releas el mismo fichero.
 
 ## Cobertura inyecciones
 Si el perfil incluye `security-injection` o `security-full`: revisar scans `xss-dom`, `xss-url`, `sqli-sql`, `ssrf-fetch`, `param-validation`, etc.

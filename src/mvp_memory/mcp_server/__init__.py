@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mvp_memory.mcp_compat import FastMCP
 
 from mvp_memory.config import Settings
 from mvp_memory.core.errors import MemoryError
@@ -467,6 +467,29 @@ def memory_audit_start(
 
 
 @mcp.tool(structured_output=False)
+def memory_audit_run(
+    target_directory: str | None = None,
+    project_id: str | None = None,
+    profile_id: str = "security-full",
+    reset: bool = False,
+) -> str:
+    """Walk the whole tree, skip failed units, and write RESUMEN-EJECUTIVO.md.
+
+    Pass target_directory to start. Pass project_id to resume the same audit.
+    The reply stays small: paths and counts, not file contents.
+    """
+    return _handle(
+        get_store().audit_run,
+        target_directory=target_directory or None,
+        project_id=project_id or None,
+        profile_id=profile_id,
+        reset=reset,
+        actor="agent",
+        session_id=_session_id(),
+    )
+
+
+@mcp.tool(structured_output=False)
 def memory_audit_status(project_id: str) -> str:
     """Progress: output paths, next unit, open tasks, checkpoint."""
     return _handle(get_store().audit_status, project_id, "agent")
@@ -642,9 +665,13 @@ def main() -> None:
     _store = MemoryStore(_settings)
 
     if args.transport == "sse":
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        mcp.run(transport="sse")
+        # SDK 2.x takes host/port as run() kwargs; 1.x stored them on settings.
+        if hasattr(mcp, "settings") and hasattr(mcp.settings, "host"):
+            mcp.settings.host = args.host
+            mcp.settings.port = args.port
+            mcp.run(transport="sse")
+        else:
+            mcp.run(transport="sse", host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
 

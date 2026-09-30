@@ -86,6 +86,58 @@ def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+_UNIT_DIR_PREFIX = re.compile(r"^chunk-\d+/")
+
+
+def strip_mistaken_unit_prefix(root: Path, rel_path: str) -> tuple[str, str | None]:
+    """A local model joins unit_id and the file: chunk-0001/function.json."""
+    rel = rel_path.replace("\\", "/").lstrip("/")
+    if resolve_under_root(root, rel).is_file():
+        return rel, None
+    stripped = rel
+    while _UNIT_DIR_PREFIX.match(stripped):
+        stripped = _UNIT_DIR_PREFIX.sub("", stripped, count=1)
+        if stripped and resolve_under_root(root, stripped).is_file():
+            return stripped, rel
+    return rel, None
+
+
+def annotate_pending_unit(project_id: str, unit: dict[str, Any]) -> dict[str, Any]:
+    rels = unit.get("rel_paths") or []
+    rel = rels[0] if rels else ""
+    if unit.get("strategy") == "rg_windows":
+        read_with = (
+            f'memory_workspace_scan_patterns(project_id="{project_id}", rel_path="{rel}")'
+        )
+    else:
+        read_with = (
+            f'memory_workspace_read(project_id="{project_id}", rel_path="{rel}")'
+        )
+    return {
+        **unit,
+        "read_rel_path": rel,
+        "read_with": read_with,
+        "complete_with": (
+            f'memory_workspace_complete_unit(project_id="{project_id}", unit_id="{unit.get("unit_id", "")}")'
+        ),
+        "note": (
+            "unit_id no es una carpeta. Pasa read_rel_path tal cual, sin anteponer chunk-NNNN/. "
+            "No uses read_files, ls ni find para localizar la unidad."
+        ),
+    }
+
+
+def _with_path_correction(payload: dict[str, Any], corrected_from: str | None) -> dict[str, Any]:
+    if not corrected_from:
+        return payload
+    payload["corrected_from"] = corrected_from
+    payload["note"] = (
+        "El unit_id no forma parte de la ruta. Siguiente paso: "
+        "memory_workspace_complete_unit con el unit_id, luego memory_workspace_next_unit."
+    )
+    return payload
+
+
 def resolve_under_root(root: Path, rel_path: str) -> Path:
     root = root.resolve()
     rel = rel_path.replace("\\", "/").lstrip("/")
@@ -273,18 +325,30 @@ class WorkspacePlanService:
             (project_id,),
         ).fetchone()
         if not row:
-            return {"project_id": project_id, "unit": None, "done": True}
+            return {
+                "project_id": project_id,
+                "unit": None,
+                "done": True,
+                "next_tool": "memory_audit_finalize",
+                "note": (
+                    "No quedan unidades. No busques carpetas chunk-*. "
+                    "Llama memory_audit_finalize y termina."
+                ),
+            }
         u = row_to_dict(row) or {}
         rel_paths = json.loads(u.get("rel_paths_json") or "[]")
-        unit = {
-            "unit_id": u["unit_id"],
-            "rel_paths": rel_paths,
-            "total_bytes": u["total_bytes"],
-            "strategy": u["strategy"],
-            "checkpoint_key": u["checkpoint_key"],
-            "approx_tokens": max(1, int(u["total_bytes"]) // 4),
-            "read_budget_bytes": READ_MAX_BYTES_DEFAULT,
-        }
+        unit = annotate_pending_unit(
+            project_id,
+            {
+                "unit_id": u["unit_id"],
+                "rel_paths": rel_paths,
+                "total_bytes": u["total_bytes"],
+                "strategy": u["strategy"],
+                "checkpoint_key": u["checkpoint_key"],
+                "approx_tokens": max(1, int(u["total_bytes"]) // 4),
+                "read_budget_bytes": READ_MAX_BYTES_DEFAULT,
+            },
+        )
         return {"project_id": project_id, "unit": unit, "done": False}
 
     def complete_unit(
@@ -321,9 +385,15 @@ class WorkspacePlanService:
         max_bytes: int = READ_MAX_BYTES_DEFAULT,
     ) -> dict:
         root = self._project_root(conn, project_id)
+        rel_path, corrected_from = strip_mistaken_unit_prefix(root, rel_path)
         path = resolve_under_root(root, rel_path)
         if not path.is_file():
-            raise MemoryError("not_found", f"file not found: {rel_path}")
+            raise MemoryError(
+                "not_found",
+                f"file not found: {rel_path}. unit_id no es una carpeta. "
+                "Usa read_rel_path de memory_workspace_next_unit tal cual, sin anteponer chunk-NNNN/. "
+                "No ejecutes ls ni find.",
+            )
         size = path.stat().st_size
         cap = min(max_bytes, READ_MAX_BYTES_DEFAULT)
         use_bytes = byte_limit > 0 or (
@@ -338,16 +408,19 @@ class WorkspacePlanService:
                 f.seek(start)
                 chunk = f.read(limit)
             text = chunk.decode("utf-8", errors="replace")
-            return {
-                "rel_path": rel_path,
-                "mode": "bytes",
-                "byte_offset": start,
-                "byte_limit": limit,
-                "file_bytes": size,
-                "content": text,
-                "truncated": start + limit < size,
-                "approx_tokens": len(text) // 4,
-            }
+            return _with_path_correction(
+                {
+                    "rel_path": rel_path,
+                    "mode": "bytes",
+                    "byte_offset": start,
+                    "byte_limit": limit,
+                    "file_bytes": size,
+                    "content": text,
+                    "truncated": start + limit < size,
+                    "approx_tokens": len(text) // 4,
+                },
+                corrected_from,
+            )
         lines: list[str] = []
         total = 0
         with path.open("r", encoding="utf-8", errors="replace") as f:
@@ -362,16 +435,19 @@ class WorkspacePlanService:
                 lines.append(line)
                 total += b
         content = "".join(lines)
-        return {
-            "rel_path": rel_path,
-            "mode": "lines",
-            "line_offset": line_offset,
-            "line_limit": line_limit,
-            "file_bytes": size,
-            "content": content,
-            "truncated": len(lines) >= line_limit or total >= cap,
-            "approx_tokens": len(content) // 4,
-        }
+        return _with_path_correction(
+            {
+                "rel_path": rel_path,
+                "mode": "lines",
+                "line_offset": line_offset,
+                "line_limit": line_limit,
+                "file_bytes": size,
+                "content": content,
+                "truncated": len(lines) >= line_limit or total >= cap,
+                "approx_tokens": len(content) // 4,
+            },
+            corrected_from,
+        )
 
     def scan_pattern(
         self,

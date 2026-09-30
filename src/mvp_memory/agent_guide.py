@@ -13,7 +13,7 @@ _CLIENT_SECTIONS = {
 3. `memory_create_project(..., workspace_path="/ruta/codigo")` si hace falta.
 4. `memory_workspace_plan(project_id="<ID>", reset=true)`.
 5. Bucle: `memory_workspace_next_unit` → `memory_workspace_read` / `memory_workspace_scan_patterns` → informe en disco → `memory_workspace_complete_unit` + `memory_update_summary`.
-6. No uses Read del IDE sobre `main.*.js` / `vendor*.js`; usa tools MCP.
+6. Auditoría de una ruta: una sola tool, `memory_audit_run(target_directory, profile_id, reset=true)`. No uses read_files, ls ni find. Si se corta, `memory_audit_run(project_id)` reanuda. El informe es RESUMEN-EJECUTIVO.md y los fallos están en INCIDENTES.md.
 """,
     "continue": """
 ## Sesión Continue (acción inmediata)

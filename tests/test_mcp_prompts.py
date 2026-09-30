@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from mvp_memory.mcp_compat import FastMCP
 
 from mvp_memory.mcp_prompts import register_mcp_prompts
 
